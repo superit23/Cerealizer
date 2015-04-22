@@ -9,12 +9,12 @@ SerializeTo<T>
 
 Reflux
 ------------------------
-SELECT from datatable
-UPDATE datatable
+SELECT from datatable, 
+UPDATE datatable, 
 Convert string to method
 
 Async Library
 ------------------------
-SynchronizedInvoke
-Paralell Processing
+SynchronizedInvoke, 
+Paralell Processing, 
 Easy Multithreaded
