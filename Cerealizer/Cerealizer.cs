@@ -26,6 +26,8 @@ namespace Cerealizer
         bool IsPropertyExcluded(PropertyInfo pinfo);
 
         object Deserialize();
+
+        object DefaultProperties();
     }
 
     public interface ICerealizer<T> : ICerealizer
@@ -45,7 +47,7 @@ namespace Cerealizer
     /// Serializes and deserializes an object into/from its properties.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class Cerealizer<T> : ICerealizer<T> where T: new()
+    public class Cerealizer<T> : ICerealizer<T> where T : new()
     {
         private T tObj = default(T);
 
@@ -66,13 +68,13 @@ namespace Cerealizer
         {
             SortedList<string, object> toRet = new SortedList<string, object>();
 
-            foreach(PropertyInfo pinfo in typeof(T).GetProperties())
+            foreach (PropertyInfo pinfo in typeof(T).GetProperties())
             {
-                if(!IsPropertyExcluded(pinfo))
+                if (!IsPropertyExcluded(pinfo))
                 {
                     toRet.Add(pinfo.Name, pinfo.GetValue(tObj));
                 }
-                
+
             }
 
             OType = tObj.GetType();
@@ -96,6 +98,7 @@ namespace Cerealizer
             return (object)toRet;
         }
 
+
         public bool IsPropertyExcluded(PropertyInfo pinfo)
         {
             foreach (object attribute in pinfo.GetCustomAttributes(true))
@@ -108,6 +111,24 @@ namespace Cerealizer
             return false;
         }
 
+        public object DefaultProperties()
+        {
+            foreach (PropertyInfo pinfo in typeof(T).GetProperties())
+            {
+                if (!IsPropertyExcluded(pinfo))
+                {
+                    if (pinfo.PropertyType != typeof(string))
+                        pinfo.SetValue(tObj, Activator.CreateInstance(pinfo.PropertyType));
+                    else
+                        pinfo.SetValue(tObj, "");
+                }
+
+            }
+            Serialize();
+
+            return (object)tObj;
+
+        }
 
         public object this[int i]
         {
@@ -137,7 +158,7 @@ namespace Cerealizer
 
     }
 
-   
+
 
 }
 

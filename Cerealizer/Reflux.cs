@@ -59,6 +59,7 @@ namespace Cerealizer
         }
 
         #endregion
+
         private static ICerealizer InstaCastConstruct(Type innerType, object arg)
         {
             Type c = typeof(Cerealizer<>);
@@ -66,7 +67,7 @@ namespace Cerealizer
             ICerealizer toRet = (ICerealizer)Activator.CreateInstance(constructed, arg);
             return toRet;
         }
-        
+
 
         private static bool NeedsCereal(Type t)
         {
@@ -114,7 +115,7 @@ namespace Cerealizer
         {
             string tableCommand = "CREATE TABLE " + obj.OType.Name.ToString() + "_DATA (ID int PRIMARY KEY IDENTITY(1,1), ";
 
-            foreach(KeyValuePair<string, object> kvp in obj.Serial)
+            foreach (KeyValuePair<string, object> kvp in obj.Serial)
             {
                 string column = kvp.Key;
                 string dbType = ConvertTypeToDB(kvp.Value.GetType());
@@ -125,7 +126,7 @@ namespace Cerealizer
                     dbType = "int";
                 }
 
-                tableCommand += column + " " +  dbType + ", ";
+                tableCommand += column + " " + dbType + ", ";
             }
 
             tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + ");";
@@ -232,16 +233,19 @@ namespace Cerealizer
         /// <param name="conn"></param>
         /// <param name="where">Formatted as COLUMNNAME, VALUE.</param>
         /// <returns></returns>
-        public static List<object> SelectFromTable(Type obj, SqlConnection conn, Dictionary<string,object> where)
+        public static List<object> SelectFromTable(Type obj, SqlConnection conn, Dictionary<string, object> where)
         {
             string tableCommand = "SELECT * FROM " + obj.Name + "_DATA WHERE ";
 
             foreach (KeyValuePair<string, object> kvp in where)
             {
-                tableCommand += kvp.Key + "=@" + kvp.Value.ToString() + "AND "; 
+                tableCommand += kvp.Key + "=@" + kvp.Key + " AND ";
             }
 
-            tableCommand = tableCommand.Substring(0, tableCommand.Length - 4) + ";";
+            if (where.Count > 0)
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 5) + ";";
+            else
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 7) + ";";
 
             object output = Instantiate(obj);
             ICerealizer temp = InstaCastConstruct(obj, output);
@@ -257,28 +261,33 @@ namespace Cerealizer
                 command.Parameters.AddWithValue(kvp.Key, kvp.Value);
             }
 
-
-
-            conn.Open();
-            SqlDataReader reader = command.ExecuteReader();
-
-            while(reader.Read())
+            if (conn.State != System.Data.ConnectionState.Open)
             {
+                conn.Open();
+            }
+
+
+            SqlDataReader reader = command.ExecuteReader();
+            temp.DefaultProperties();
+
+            while (reader.Read())
+            {
+                ICerealizer currInst = InstaCastConstruct(obj, output);
+
                 foreach (KeyValuePair<string, object> kvp in temp.Serial)
                 {
                     if (!NeedsCereal(kvp.Value.GetType()))
                     {
-                        temp[kvp.Key] = reader[kvp.Key];
+                        currInst[kvp.Key] = reader[kvp.Key];
                     }
                     else
-                       temp[kvp.Key] = SelectFromTable(kvp.Value.GetType(), conn, new Dictionary<string, object> {{"ID", (int)kvp.Value}})[0];
-                    
+                        currInst[kvp.Key] = SelectFromTable(kvp.Value.GetType(), new SqlConnection(conn.ConnectionString), new Dictionary<string, object> { { "ID", (int)reader[kvp.Key] } })[0];
+
                 }
 
-                toRet.Add(temp.Deserialize());
-                
-            }
+                toRet.Add(currInst.Deserialize());
 
+            }
 
             conn.Close();
 
