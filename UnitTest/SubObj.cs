@@ -21,5 +21,9 @@ namespace UnitTest
         [Exclude]
         public string ShouldNotAppear
         { get; set; }
+
+        [PrimaryKey]
+        public int ID
+        { get; set; }
     }
 }

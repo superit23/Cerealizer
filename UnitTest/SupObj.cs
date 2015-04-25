@@ -24,5 +24,9 @@ namespace UnitTest
 
         public SubObj myObj
         { get; set; }
+
+        [PrimaryKey]
+        public int ID
+        { get; set; }
     }
 }
