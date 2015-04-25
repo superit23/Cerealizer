@@ -14,6 +14,8 @@ namespace Cerealizer
     /// </summary>
     public class Reflux
     {
+        
+
         #region Instantiation
 
         /// <summary>
@@ -59,6 +61,11 @@ namespace Cerealizer
         }
 
         #endregion
+
+        public static Type[] GetInnerType(object obj)
+        {
+            return obj.GetType().GetGenericArguments();
+        }
 
         private static ICerealizer InstaCastConstruct(Type innerType, object arg)
         {
@@ -113,7 +120,15 @@ namespace Cerealizer
         /// <param name="conn"></param>
         public static void FormatTable(ICerealizer obj, SqlConnection conn)
         {
-            string tableCommand = "CREATE TABLE " + obj.OType.Name.ToString() + "_DATA (ID int PRIMARY KEY IDENTITY(1,1), ";
+            string tableCommand = "";
+
+            if(obj.PrimaryKey.Key == null)
+            {
+                tableCommand = "CREATE TABLE " + obj.OType.Name.ToString() + "_DATA (ID int PRIMARY KEY IDENTITY(1,1), ";
+            }
+            else
+                tableCommand = "CREATE TABLE " + obj.OType.Name.ToString() + "_DATA (" + obj.PrimaryKey.Key + " int PRIMARY KEY IDENTITY(1,1), ";
+            
 
             foreach (KeyValuePair<string, object> kvp in obj.Serial)
             {
@@ -148,8 +163,7 @@ namespace Cerealizer
         /// <returns></returns>
         public static int InsertIntoTable(ICerealizer obj, SqlConnection conn)
         {
-            string tableCommand = "INSERT INTO " + obj.OType.Name.ToString() + "_DATA OUTPUT INSERTED.ID VALUES(";
-
+            string tableCommand = "INSERT INTO " + obj.OType.Name.ToString() + "_DATA OUTPUT INSERTED." + obj.PrimaryKey.Key + " VALUES(";
             Dictionary<string, string> toInsert = new Dictionary<string, string>();
 
 
@@ -157,19 +171,26 @@ namespace Cerealizer
             {
                 string value = "";
 
-                if (NeedsCereal(kvp.Value.GetType()))
+                if (!(obj.PrimaryKey.Key == kvp.Key))
                 {
-                    value = InsertIntoTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn).ToString();
+                    if (NeedsCereal(kvp.Value.GetType()))
+                    {
+                        value = InsertIntoTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn).ToString();
+                    }
+                    else
+                        value = kvp.Value.ToString();
+
+
+                    toInsert.Add(kvp.Key, value);
+
+                    tableCommand += "@" + kvp.Key + ", ";
                 }
-                else
-                    value = kvp.Value.ToString();
-
-                toInsert.Add(kvp.Key, value);
-
-                tableCommand += "@" + kvp.Key + ", ";
+                    
             }
 
             tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + ");";
+
+            Console.WriteLine(tableCommand);
 
             SqlCommand command = new SqlCommand(tableCommand, conn);
 
@@ -182,14 +203,14 @@ namespace Cerealizer
             int id = (int)command.ExecuteScalar();
             conn.Close();
 
-            Console.WriteLine(tableCommand);
+            
             return id;
         }
 
-        public static void UpdateTable(ICerealizer obj, SqlConnection conn, int ID)
+
+        public static void UpdateTable(ICerealizer obj, SqlConnection conn, Dictionary<string, object> where)
         {
             string tableCommand = "UPDATE " + obj.OType.Name.ToString() + "_DATA SET ";
-
             Dictionary<string, string> toInsert = new Dictionary<string, string>();
 
 
@@ -199,7 +220,7 @@ namespace Cerealizer
 
                 if (NeedsCereal(kvp.Value.GetType()))
                 {
-                    value = InsertIntoTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn).ToString();
+                    UpdateTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn, new System.Collections.Generic.Dictionary<string, object> { { "ID", kvp.Value } });
                 }
                 else
                     value = kvp.Value.ToString();
@@ -209,21 +230,92 @@ namespace Cerealizer
                 tableCommand += kvp.Key + "=@" + kvp.Key + ", ";
             }
 
-            tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + "WHERE ID=@ID;";
+
+            tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + " WHERE ";
+
+
+            foreach (KeyValuePair<string, object> kvp in where)
+            {
+                tableCommand += kvp.Key + "=@" + kvp.Key + " AND ";
+            }
+
+
+            if (where.Count > 0)
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 5) + ";";
+            else
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 7) + ";";
+
 
             SqlCommand command = new SqlCommand(tableCommand, conn);
+
 
             foreach (KeyValuePair<string, string> kvp in toInsert)
             {
                 command.Parameters.AddWithValue(kvp.Key, kvp.Value);
             }
 
+
+            foreach (KeyValuePair<string, object> kvp in where)
+            {
+                command.Parameters.AddWithValue(kvp.Key, kvp.Value);
+            }
+
+
             conn.Open();
-            int id = (int)command.ExecuteScalar();
+            command.ExecuteNonQuery();
             conn.Close();
 
             Console.WriteLine(tableCommand);
             //return id;
+        }
+
+
+        public static void UpdateTable(ICerealizer obj, SqlConnection conn)
+        {
+            string tableCommand = "UPDATE " + obj.OType.Name.ToString() + "_DATA SET ";
+            Dictionary<string, string> toInsert = new Dictionary<string, string>();
+
+            foreach (KeyValuePair<string, object> kvp in obj.Serial)
+            {
+                string value = "";
+
+                if (obj.PrimaryKey.Key != kvp.Key)
+                {
+
+                    if (NeedsCereal(kvp.Value.GetType()))
+                    {
+                        UpdateTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), new SqlConnection(conn.ConnectionString));
+                    }
+                    else
+                        value = kvp.Value.ToString();
+
+                    toInsert.Add(kvp.Key, value);
+
+                    tableCommand += kvp.Key + "=@" + kvp.Key + ", ";
+                }
+            }
+
+
+            tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + " WHERE ";
+            tableCommand += obj.PrimaryKey.Key + "=@" + obj.PrimaryKey.Key + ";";
+
+
+            SqlCommand command = new SqlCommand(tableCommand, conn);
+
+
+            foreach (KeyValuePair<string, string> kvp in toInsert)
+            {
+                command.Parameters.AddWithValue(kvp.Key, kvp.Value);
+            }
+
+                command.Parameters.AddWithValue(obj.PrimaryKey.Key, obj.PrimaryKey.Value);
+
+
+            conn.Open();
+            command.ExecuteNonQuery();
+            conn.Close();
+
+            Console.WriteLine(tableCommand);
         }
 
         /// <summary>
@@ -233,9 +325,9 @@ namespace Cerealizer
         /// <param name="conn"></param>
         /// <param name="where">Formatted as COLUMNNAME, VALUE.</param>
         /// <returns></returns>
-        public static List<object> SelectFromTable(Type obj, SqlConnection conn, Dictionary<string, object> where)
+        public static List<object> SelectFromTable(ICerealizer obj, SqlConnection conn, Dictionary<string, object> where)
         {
-            string tableCommand = "SELECT * FROM " + obj.Name + "_DATA WHERE ";
+            string tableCommand = "SELECT * FROM " + obj.OType.Name.ToString() + "_DATA WHERE ";
 
             foreach (KeyValuePair<string, object> kvp in where)
             {
@@ -247,14 +339,14 @@ namespace Cerealizer
             else
                 tableCommand = tableCommand.Substring(0, tableCommand.Length - 7) + ";";
 
-            object output = Instantiate(obj);
-            ICerealizer temp = InstaCastConstruct(obj, output);
+
+            //object output = Instantiate(obj);
+            //ICerealizer temp = InstaCastConstruct(obj, output);
 
             List<object> toRet = new List<object>();
 
-
-
             SqlCommand command = new SqlCommand(tableCommand, conn);
+
 
             foreach (KeyValuePair<string, object> kvp in where)
             {
@@ -268,20 +360,23 @@ namespace Cerealizer
 
 
             SqlDataReader reader = command.ExecuteReader();
-            temp.DefaultProperties();
+            //temp.DefaultProperties();
 
             while (reader.Read())
             {
-                ICerealizer currInst = InstaCastConstruct(obj, output);
+                ICerealizer currInst = InstaCastConstruct(GetInnerType(obj)[0], Instantiate(GetInnerType(obj)[0]));
 
-                foreach (KeyValuePair<string, object> kvp in temp.Serial)
+                foreach (KeyValuePair<string, object> kvp in obj.Serial)
                 {
                     if (!NeedsCereal(kvp.Value.GetType()))
                     {
                         currInst[kvp.Key] = reader[kvp.Key];
                     }
                     else
-                        currInst[kvp.Key] = SelectFromTable(kvp.Value.GetType(), new SqlConnection(conn.ConnectionString), new Dictionary<string, object> { { "ID", (int)reader[kvp.Key] } })[0];
+                    {
+                        ICerealizer subObj = InstaCastConstruct(kvp.Value.GetType(), Instantiate(kvp.Value.GetType()));
+                        currInst[kvp.Key] = SelectFromTable(subObj, new SqlConnection(conn.ConnectionString), new Dictionary<string, object> { { subObj.PrimaryKey.Key, (int)reader[kvp.Key] } })[0];
+                    }
 
                 }
 
@@ -294,6 +389,98 @@ namespace Cerealizer
             Console.WriteLine(tableCommand);
             return toRet;
         }
+ 
+
+        public static void DeleteFromTable(ICerealizer obj, SqlConnection conn, Dictionary<string, object> where, bool deleteSubObjects)
+        {
+            string tableCommand = "DELETE FROM " + obj.OType.Name.ToString() + "_DATA WHERE ";
+            Dictionary<string, string> toInsert = new Dictionary<string, string>();
+
+
+            foreach (KeyValuePair<string, object> kvp in obj.Serial)
+            {
+                string value = "";
+
+                if (NeedsCereal(kvp.Value.GetType()) && deleteSubObjects)
+                {
+                    ICerealizer subObj = InstaCastConstruct(kvp.Value.GetType(), kvp.Value);
+                    DeleteFromTable(subObj, conn, new System.Collections.Generic.Dictionary<string, object> { { subObj.PrimaryKey.Key, kvp.Value } }, true);
+                }
+                else
+                    value = kvp.Value.ToString();
+
+                toInsert.Add(kvp.Key, value);
+
+                tableCommand += kvp.Key + "=@" + kvp.Key + ", ";
+            }
+
+
+            tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + " WHERE ";
+
+
+            foreach (KeyValuePair<string, object> kvp in where)
+            {
+                tableCommand += kvp.Key + "=@" + kvp.Key + " AND ";
+            }
+
+
+            if (where.Count > 0)
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 5) + ";";
+            else
+                tableCommand = tableCommand.Substring(0, tableCommand.Length - 7) + ";";
+
+
+            SqlCommand command = new SqlCommand(tableCommand, conn);
+
+
+            foreach (KeyValuePair<string, string> kvp in toInsert)
+            {
+                command.Parameters.AddWithValue(kvp.Key, kvp.Value);
+            }
+
+
+            foreach (KeyValuePair<string, object> kvp in where)
+            {
+                command.Parameters.AddWithValue(kvp.Key, kvp.Value);
+            }
+
+
+            conn.Open();
+            command.ExecuteNonQuery();
+            conn.Close();
+
+            Console.WriteLine(tableCommand);
+        }
+
+
+        public static void DeleteFromTable(ICerealizer obj, SqlConnection conn, bool deleteSubObjects)
+        {
+            string tableCommand = "DELETE FROM " + obj.OType.Name.ToString() + "_DATA WHERE ";
+
+            foreach (KeyValuePair<string, object> kvp in obj.Serial)
+            {
+                if (NeedsCereal(kvp.Value.GetType()) && deleteSubObjects)
+                {
+                    DeleteFromTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn, true);
+                }
+
+            }
+
+            tableCommand += obj.PrimaryKey.Key + "=@" + obj.PrimaryKey.Key + ";";
+
+
+            SqlCommand command = new SqlCommand(tableCommand, conn);
+
+            command.Parameters.AddWithValue(obj.PrimaryKey.Key, obj.PrimaryKey.Value);
+
+            conn.Open();
+            command.ExecuteNonQuery();
+            conn.Close();
+
+            Console.WriteLine(tableCommand);
+        }
+
+        
 
     }
 }

@@ -57,9 +57,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cerealizer\Cerealizer.csproj">
+    <ProjectReference Include="..\Cerealizer\Black Magic.csproj">
       <Project>{2e5b05e2-6201-414b-8cb5-33ba501ff9b8}</Project>
-      <Name>Cerealizer</Name>
+      <Name>Black Magic</Name>
     </ProjectReference>
   </ItemGroup>
   <Choose>

@@ -15,6 +15,9 @@ namespace Cerealizer
         Type OType
         { get; set; }
 
+        KeyValuePair<string, object> PrimaryKey
+        { get; set; }
+
         object this[string s]
         { get; set; }
 
@@ -57,10 +60,20 @@ namespace Cerealizer
         public Type OType
         { get; set; }
 
+        public KeyValuePair<string, object> PrimaryKey
+        { get; set; }
+
+
         public Cerealizer(T obj)
         {
             tObj = obj;
             Serialize();
+        }
+
+        public Cerealizer()
+        {
+            tObj = new T();
+            DefaultProperties();
         }
 
 
@@ -70,6 +83,11 @@ namespace Cerealizer
 
             foreach (PropertyInfo pinfo in typeof(T).GetProperties())
             {
+                if (IsPropertyPrimaryKey(pinfo))
+                {
+                    PrimaryKey = new KeyValuePair<string, object>(pinfo.Name, pinfo.GetValue(tObj));
+                }
+
                 if (!IsPropertyExcluded(pinfo))
                 {
                     toRet.Add(pinfo.Name, pinfo.GetValue(tObj));
@@ -104,6 +122,18 @@ namespace Cerealizer
             foreach (object attribute in pinfo.GetCustomAttributes(true))
             {
                 if (attribute is Exclude)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool IsPropertyPrimaryKey(PropertyInfo pinfo)
+        {
+            foreach (object attribute in pinfo.GetCustomAttributes(true))
+            {
+                if (attribute is PrimaryKey)
                 {
                     return true;
                 }
@@ -158,6 +188,13 @@ namespace Cerealizer
 
     }
 
+    public class PrimaryKey : Attribute
+    {
+        public PrimaryKey()
+        {
+
+        }
+    }
 
 
 }
