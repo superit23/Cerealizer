@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Cerealizer;
+using System.Collections.Generic;
 
 namespace UnitTest
 {
@@ -30,24 +31,26 @@ namespace UnitTest
 
             //Reflux.FormatTable(subTest, testConn);
 
-            Reflux.InsertIntoTable(subTest, testConn);
-            //SupObj temp = (SupObj)Reflux.SelectFromTable(new Cerealizer<SupObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
-            SubObj temp = (SubObj)Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
+            //subTest["ID"] = Reflux.InsertIntoTable(subTest, testConn);
+            //List<object> temp = Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { });
+            List<object> temp = Reflux.SelectFromTable(new Cerealizer<SupObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { });
+            //SubObj temp = (SubObj)Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
             //SupObj temp = (SupObj)Reflux.SelectFromTable(typeof(SupObj), testConn);
-
-            //Console.WriteLine(temp.ID);
+            Console.WriteLine(((SupObj)temp[0]).Neighborhood);
 
             testSub.Name = "Chuck Norris";
             subTest["Address"] = "New Address";
 
             //Reflux.UpdateTable(subTest, testConn, new System.Collections.Generic.Dictionary<string, object> { { "ID", 1 } });
+            ((SupObj)temp[0]).Neighborhood = "OH YEAH!";
 
-            //Reflux.UpdateTable(subTest, testConn);
+            Reflux.UpdateTable(new Cerealizer<SupObj>(((SupObj)temp[0])), testConn);
 
-            Cerealizer<SubObj> newTemp = new Cerealizer<SubObj>(temp);
-            Reflux.DeleteFromTable(subTest, testConn, true);
-            SubObj temp1 = (SubObj)Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
-            Reflux.DeleteFromTable(newTemp, testConn, true);
+            Console.WriteLine(((SupObj)temp[0]).Neighborhood);
+            //Cerealizer<SubObj> newTemp = new Cerealizer<SubObj>(temp);
+            //Reflux.DeleteFromTable(new Cerealizer<SupObj>(((SupObj)temp[0])), testConn, true);
+            //SubObj temp1 = (SubObj)Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
+            //Reflux.DeleteFromTable(newTemp, testConn, true);
 
             //SupObj temp1 = (SupObj)Reflux.SelectFromTable(typeof(SupObj), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
 

@@ -65,11 +65,22 @@ namespace Cerealizer
 
         #endregion
 
+        /// <summary>
+        /// Gets the inner type of a generic object.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public static Type[] GetInnerType(object obj)
         {
             return obj.GetType().GetGenericArguments();
         }
 
+        /// <summary>
+        /// Constructs, instantiates, and casts an ICerealier object.
+        /// </summary>
+        /// <param name="innerType"></param>
+        /// <param name="arg"></param>
+        /// <returns></returns>
         private static ICerealizer InstaCastConstruct(Type innerType, object arg)
         {
             Type c = typeof(Cerealizer<>);
@@ -78,7 +89,20 @@ namespace Cerealizer
             return toRet;
         }
 
+        private static ICerealizer InstaCastConstruct(Type innerType)
+        {
+            Type c = typeof(Cerealizer<>);
+            Type constructed = c.MakeGenericType(innerType);
+            ICerealizer toRet = (ICerealizer)Activator.CreateInstance(constructed);
+            return toRet;
+        }
 
+
+        /// <summary>
+        /// Tests whether the type needs to be serialized.
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
         private static bool NeedsCereal(Type t)
         {
             return !(t.IsPrimitive || t == typeof(Decimal) || t == typeof(String) || t == typeof(Boolean) || t == typeof(DateTime));
@@ -138,13 +162,17 @@ namespace Cerealizer
                 string column = kvp.Key;
                 string dbType = ConvertTypeToDB(kvp.Value.GetType());
 
-                if (NeedsCereal(kvp.Value.GetType()))
+                if (kvp.Key != obj.PrimaryKey.Key)
                 {
-                    FormatTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn);
-                    dbType = "int";
-                }
 
-                tableCommand += column + " " + dbType + ", ";
+                    if (NeedsCereal(kvp.Value.GetType()))
+                    {
+                        FormatTable(InstaCastConstruct(kvp.Value.GetType(), kvp.Value), conn);
+                        dbType = "int";
+                    }
+
+                    tableCommand += column + " " + dbType + ", ";
+                }
             }
 
             tableCommand = tableCommand.Substring(0, tableCommand.Length - 2) + ");";
@@ -367,7 +395,8 @@ namespace Cerealizer
 
             while (reader.Read())
             {
-                ICerealizer currInst = InstaCastConstruct(GetInnerType(obj)[0], Instantiate(GetInnerType(obj)[0]));
+                //ICerealizer currInst = InstaCastConstruct(GetInnerType(obj)[0], Instantiate(GetInnerType(obj)[0]));
+                ICerealizer currInst = InstaCastConstruct(GetInnerType(obj)[0]);
 
                 foreach (KeyValuePair<string, object> kvp in obj.Serial)
                 {
@@ -377,7 +406,7 @@ namespace Cerealizer
                     }
                     else
                     {
-                        ICerealizer subObj = InstaCastConstruct(kvp.Value.GetType(), Instantiate(kvp.Value.GetType()));
+                        ICerealizer subObj = InstaCastConstruct(kvp.Value.GetType());
                         currInst[kvp.Key] = SelectFromTable(subObj, new SqlConnection(conn.ConnectionString), new Dictionary<string, object> { { subObj.PrimaryKey.Key, (int)reader[kvp.Key] } })[0];
                     }
 
@@ -483,6 +512,7 @@ namespace Cerealizer
             Console.WriteLine(tableCommand);
         }
 
+
         public static void WriteToXML(ICerealizer obj, string filepath)
         {
             XmlSerializer ser = new XmlSerializer(obj.OType);
@@ -491,6 +521,7 @@ namespace Cerealizer
             writer.Close();
 
         }
+
 
         //https://msdn.microsoft.com/en-us/library/fa420a9y(v=vs.110).aspx
         public static object ReadFromXML(Type obj, string filepath)
