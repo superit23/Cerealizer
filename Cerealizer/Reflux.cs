@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using System.Data.SqlClient;
 using System.Collections;
 using System.Reflection;
+using System.IO;
+using System.Data;
+using System.Xml.Serialization;
 
 namespace Cerealizer
 {
@@ -480,6 +483,57 @@ namespace Cerealizer
             Console.WriteLine(tableCommand);
         }
 
+        public static void WriteToXML(ICerealizer obj, string filepath)
+        {
+            XmlSerializer ser = new XmlSerializer(obj.OType);
+            StreamWriter writer = new StreamWriter(filepath);
+            ser.Serialize(writer, obj.Deserialize());
+            writer.Close();
+
+        }
+
+        //https://msdn.microsoft.com/en-us/library/fa420a9y(v=vs.110).aspx
+        public static object ReadFromXML(Type obj, string filepath)
+        {
+            XmlSerializer mySerializer =
+            new XmlSerializer(obj);
+
+            FileStream myFileStream =
+            new FileStream(filepath, FileMode.Open);
+
+            object toRet = mySerializer.Deserialize(myFileStream);
+
+            myFileStream.Close();
+            return toRet;
+        }
+
+
+        public static DataTable ConvertIEnumToDataTable<T>(IEnumerable<T> obj)
+        {
+            DataTable toRet = new DataTable();
+
+            foreach (PropertyInfo pinfo in GetInnerType(obj)[0].GetProperties())
+            {
+                toRet.Columns.Add(pinfo.Name);
+            }
+
+            foreach (T temp in obj)
+            {
+                object[] props = new object[GetInnerType(obj)[0].GetProperties().Count()];
+
+                int i = 0;
+                foreach (PropertyInfo pinfo in GetInnerType(obj)[0].GetProperties())
+                {
+                    props[i] = pinfo.GetValue(temp);
+                    i++;
+                }
+
+                toRet.Rows.Add(props);
+
+            }
+
+            return toRet;
+        }
         
 
     }

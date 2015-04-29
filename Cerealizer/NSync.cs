@@ -7,7 +7,7 @@ using System.ComponentModel;
 
 namespace Cerealizer
 {
-    class NSync
+    public class NSync
     {
         public static void Invoke(ISynchronizeInvoke obj, Action action)
         {

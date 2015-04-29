@@ -49,7 +49,6 @@ namespace UnitTest
             SubObj temp1 = (SubObj)Reflux.SelectFromTable(new Cerealizer<SubObj>(), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
             Reflux.DeleteFromTable(newTemp, testConn, true);
 
-
             //SupObj temp1 = (SupObj)Reflux.SelectFromTable(typeof(SupObj), testConn, new System.Collections.Generic.Dictionary<string, object> { })[0];
 
             //Console.WriteLine(temp1.myObj.Name);
