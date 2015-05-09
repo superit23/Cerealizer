@@ -35,7 +35,7 @@ namespace Cerealizer
 
     public interface ICerealizer<T> : ICerealizer
     {
-
+        void Deserialize(out T obj);
     }
 
     public class Exclude : Attribute
@@ -116,6 +116,10 @@ namespace Cerealizer
             return (object)toRet;
         }
 
+        public void Deserialize(out T obj)
+        {
+            obj = (T)Deserialize();
+        }
 
         public bool IsPropertyExcluded(PropertyInfo pinfo)
         {
